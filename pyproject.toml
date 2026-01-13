@@ -1,0 +1,44 @@
+# Author: Victor Hugo Garcia de Oliveira
+# Date: 2025-12-21
+#
+# This Source Code Form is subject to the terms of the Mozilla Public
+# License, v. 2.0. If a copy of the MPL was not distributed with this
+# file, You can obtain one at https://mozilla.org/MPL/2.0/.
+#
+# Este arquivo de código-fonte está sujeito aos termos da Mozilla Public
+# License, v. 2.0. Se uma cópia da MPL não foi distribuída com este
+# arquivo, você pode obter uma em https://mozilla.org/MPL/2.0/.
+[tool.pytest.ini_options]
+pythonpath = "."
+
+[project]
+name = "academic-management-app"
+version = "0.1.0"
+description = "An academic management application with an AI assistant."
+authors = [
+    {name = "Jules"}
+]
+license = {text = "MPL-2.0"}
+readme = "README.md"
+requires-python = ">=3.10,<3.15"
+dependencies = [
+    "customtkinter (>=5.2.2,<6.0.0)",
+    "sqlalchemy (>=2.0.44,<3.0.0)",
+    "openai (>=2.6.1,<3.0.0)",
+    "keyring (>=25.6.0,<26.0.0)",
+    "beautifulsoup4 (>=4.14.2,<5.0.0)",
+    "requests (>=2.32.5,<3.0.0)",
+    "matplotlib (>=3.10.7,<4.0.0)",
+    "pytest-mock (>=3.15.1,<4.0.0)"
+]
+
+
+[build-system]
+requires = ["poetry-core>=2.0.0,<3.0.0"]
+build-backend = "poetry.core.masonry.api"
+
+[dependency-groups]
+dev = [
+    "pyinstaller (>=6.16.0,<7.0.0)",
+    "pytest (>=8.4.2,<9.0.0)"
+]
