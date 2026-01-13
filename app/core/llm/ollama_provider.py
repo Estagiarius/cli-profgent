@@ -8,11 +8,12 @@
 # Este arquivo de código-fonte está sujeito aos termos da Mozilla Public
 # License, v. 2.0. Se uma cópia da MPL não foi distribuída com este
 # arquivo, você pode obter uma em https://mozilla.org/MPL/2.0/.
-from openai import AsyncOpenAI
+from typing import List, TYPE_CHECKING
 from app.core.llm.base import LLMProvider, AssistantResponse
-from typing import List
 import httpx
 
+if TYPE_CHECKING:
+    from openai import AsyncOpenAI
 
 class OllamaProvider(LLMProvider):
     """
@@ -30,6 +31,7 @@ class OllamaProvider(LLMProvider):
     """
 
     def __init__(self, base_url: str = "http://localhost:11434/v1", model: str = "llama3.1"):
+        from openai import AsyncOpenAI
         self.client = AsyncOpenAI(
             base_url=base_url,
             api_key="ollama",

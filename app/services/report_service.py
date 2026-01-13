@@ -11,12 +11,8 @@
 import csv
 import os
 from datetime import datetime
-import matplotlib
-# Force Agg backend for headless/background generation to avoid GUI lockups
-matplotlib.use('Agg')
-import matplotlib.pyplot as plt
+import plotext as plt
 from app.services.data_service import DataService
-from matplotlib.patches import Rectangle, Circle
 
 class ReportService:
     """
@@ -41,10 +37,11 @@ class ReportService:
 
     def generate_seating_chart_pdf(self, chart_id: int) -> str:
         """
-        Generates a visual representation of the seating chart as a PDF (via matplotlib).
+        Generates a visual representation of the seating chart.
+        For TUI, this returns a text file containing the grid representation.
 
         :param chart_id: ID of the seating chart.
-        :return: Path to the generated PDF file.
+        :return: Path to the generated text file.
         """
         chart_details = self.data_service.get_seating_chart_details(chart_id)
         if not chart_details:
@@ -53,7 +50,7 @@ class ReportService:
         rows = chart_details['rows']
         cols = chart_details['columns']
         assignments = chart_details['assignments']
-        # layout_config is a JSON string, we need to parse it if we want to draw special cells (Door, Teacher)
+
         import json
         try:
             layout_config = json.loads(chart_details.get('layout_config', '{}'))
@@ -65,191 +62,65 @@ class ReportService:
         for a in assignments:
             assigned_map[(a['row_index'], a['col_index'])] = a
 
-        # Plot setup
-        # Modifique a linha do figsize para ter retângulos ao invés de quadrados
-        # Multiplicamos a largura por 2 e a altura por 1.2 para criar um formato retangular
-        fig, ax = plt.subplots(figsize=(cols * 2, rows * 1.2))
-        ax.set_xlim(0, cols)
-        ax.set_ylim(0, rows)
-        ax.set_aspect('equal')
+        # Generate Text Grid
+        output = [f"Mapa de Sala: {chart_details['name']}", ""]
 
-        # Invert Y axis so row 0 is at top
-        ax.invert_yaxis()
+        # Simple grid drawing with text
+        # Assuming 3 lines per row (Top border, content, Bottom border) + headers
 
-        # Remove axes
-        ax.axis('off')
+        col_width = 15
+        border_line = "+" + ("-" * col_width + "+") * cols
 
-        # Draw Cells
         for r in range(rows):
+            output.append(border_line)
+            row_lines = ["|"]
+
             for c in range(cols):
                 cell_key = f"{r},{c}"
                 cell_type = layout_config.get(cell_key, "student_seat")
 
-                # Coords: x=c, y=r. Rectangle starts at (c, r)
+                content = " " * col_width
 
                 if cell_type == "void":
-                    continue # Draw nothing
-
-                # Colors/Styles based on type
-                facecolor = 'white'
-                edgecolor = 'black'
-                label = ""
-
-                if cell_type == "teacher_desk":
-                    facecolor = '#D3D3D3' # Light Gray
-                    label = "Mesa Prof."
+                    content = "X" * col_width
+                elif cell_type == "teacher_desk":
+                    content = "Mesa Prof.".center(col_width)
                 elif cell_type == "door":
-                    facecolor = '#8B4513' # SaddleBrown
-                    label = "Porta"
+                    content = "Porta".center(col_width)
                 elif cell_type == "student_seat":
-                    facecolor = 'white'
-                    # Check assignment
                     assignment_data = assigned_map.get((r, c))
                     if assignment_data:
                         student_name = assignment_data['student_name']
-                        call_num = assignment_data.get('call_number')
-                        call_str = f"{call_num}" if call_num is not None else "?"
-
-                        # Add Call Number text (top-left)
-                        # With inverted Y axis, r is top, r+1 is bottom.
-                        # Position at r + 0.1 (near top)
-                        # Ajuste a posição do texto do número de chamada
-                        ax.text(c + 0.05, r + 0.5, call_str,
-                                ha='left', va='top', fontsize=8, fontweight='bold', color='blue')
-
-                        label = student_name
+                        # Truncate if necessary
+                        if len(student_name) > col_width - 2:
+                            student_name = student_name[:col_width-2]
+                        content = f" {student_name} ".center(col_width)
                     else:
-                        label = "Vazio"
+                        content = "Vazio".center(col_width)
 
-                # Draw Rectangle
-                # E mais abaixo, onde é criado o retângulo, modifique:
-                # Em vez de um quadrado 1x1, faremos um retângulo 1x0.6
-                rect = Rectangle((c, r), 1, 0.6, facecolor=facecolor, edgecolor=edgecolor)
-                ax.add_patch(rect)
+                row_lines.append(content + "|")
 
-                # Draw Text centered (Name)
-                if label != "Vazio":
-                     # Split name if too long
-                    display_label = label
-                    if len(label) > 15:
-                        parts = label.split()
-                        if len(parts) > 1:
-                            display_label = f"{parts[0]}\n{parts[-1]}"
-                        else:
-                            display_label = label[:15] + "..."
+            output.append("".join(row_lines))
 
-                    # Ajuste a posição do nome do aluno
-                    ax.text(c + 0.5, r + 0.3, display_label,
-                            ha='center', va='center', fontsize=10,
-                            color='white' if cell_type == 'door' else 'black')
-                else:
-                    # Draw "Vazio" fainter
-                    ax.text(c + 0.5, r + 0.5, "Vazio",
-                            ha='center', va='center', fontsize=8,
-                            color='#AAAAAA')
+        output.append(border_line)
 
-        plt.title(f"Mapa de Sala: {chart_details['name']}", fontsize=16)
-
-        # Save file
-        filename = f"seating_chart_{chart_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.pdf"
+        filename = f"seating_chart_{chart_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
         filepath = self._get_file_path(filename)
-        plt.savefig(filepath, format='pdf', bbox_inches='tight')
-        plt.close()
+
+        with open(filepath, 'w', encoding='utf-8') as f:
+            f.write("\n".join(output))
 
         return filepath
 
     def generate_seating_chart_svg(self, chart_id: int) -> str:
         """
         Generates a visual representation of the seating chart as an SVG (vector).
+        Legacy method kept for API compatibility, redirects to text version.
 
         :param chart_id: ID of the seating chart.
-        :return: Path to the generated SVG file.
+        :return: Path to the generated file.
         """
-        # Reuse PDF logic but save as SVG.
-        # Refactor? Ideally yes, but for now copying the plotting logic is safer to avoid breaking changes in the patch.
-        # Or better: Extract plotting logic.
-
-        # Let's extract plotting logic since it's identical.
-        return self._generate_seating_chart_plot(chart_id, 'svg')
-
-    def _generate_seating_chart_plot(self, chart_id: int, format: str) -> str:
-        chart_details = self.data_service.get_seating_chart_details(chart_id)
-        if not chart_details:
-            raise ValueError("Seating chart not found.")
-
-        rows = chart_details['rows']
-        cols = chart_details['columns']
-        assignments = chart_details['assignments']
-        import json
-        try:
-            layout_config = json.loads(chart_details.get('layout_config', '{}'))
-        except json.JSONDecodeError:
-            layout_config = {}
-
-        assigned_map = {}
-        for a in assignments:
-            assigned_map[(a['row_index'], a['col_index'])] = a
-
-        fig, ax = plt.subplots(figsize=(cols * 2, rows * 2))
-        ax.set_xlim(0, cols)
-        ax.set_ylim(0, rows)
-        ax.set_aspect('equal')
-        ax.invert_yaxis()
-        ax.axis('off')
-
-        for r in range(rows):
-            for c in range(cols):
-                cell_key = f"{r},{c}"
-                cell_type = layout_config.get(cell_key, "student_seat")
-
-                if cell_type == "void":
-                    continue
-
-                facecolor = 'white'
-                edgecolor = 'black'
-                label = ""
-
-                if cell_type == "teacher_desk":
-                    facecolor = '#D3D3D3'
-                    label = "Mesa Prof."
-                elif cell_type == "door":
-                    facecolor = '#8B4513'
-                    label = "Porta"
-                elif cell_type == "student_seat":
-                    facecolor = 'white'
-                    assignment_data = assigned_map.get((r, c))
-                    if assignment_data:
-                        student_name = assignment_data['student_name']
-                        call_num = assignment_data.get('call_number')
-                        call_str = f"{call_num}" if call_num is not None else "?"
-                        ax.text(c + 0.05, r + 0.9, call_str, ha='left', va='top', fontsize=8, fontweight='bold', color='blue')
-                        label = student_name
-                    else:
-                        label = "Vazio"
-
-                rect = Rectangle((c, r), 1, 1, facecolor=facecolor, edgecolor=edgecolor)
-                ax.add_patch(rect)
-
-                if label != "Vazio":
-                    display_label = label
-                    if len(label) > 15:
-                        parts = label.split()
-                        if len(parts) > 1:
-                            display_label = f"{parts[0]}\n{parts[-1]}"
-                        else:
-                            display_label = label[:15] + "..."
-                    ax.text(c + 0.5, r + 0.5, display_label, ha='center', va='center', fontsize=10, color='white' if cell_type == 'door' else 'black')
-                else:
-                    # Draw "Vazio" fainter
-                    ax.text(c + 0.5, r + 0.5, "Vazio", ha='center', va='center', fontsize=8, color='#AAAAAA')
-
-        plt.title(f"Mapa de Sala: {chart_details['name']}", fontsize=16)
-
-        filename = f"seating_chart_{chart_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.{format}"
-        filepath = self._get_file_path(filename)
-        plt.savefig(filepath, format=format, bbox_inches='tight')
-        plt.close()
-        return filepath
+        return self.generate_seating_chart_pdf(chart_id)
 
     def generate_student_grade_chart(self, student_id: int, class_id: int) -> str:
         """
@@ -257,18 +128,13 @@ class ReportService:
 
         :param student_id: ID of the student.
         :param class_id: ID of the class.
-        :return: Path to the generated image file.
+        :return: Path to the generated text/ansi file.
         """
-        # Otimização 1: Usar o helper get_class_report_data para evitar queries em loop
         report_data = self.data_service.get_class_report_data(class_id)
-
-        # Encontra o aluno na lista de dados retornada (evita query extra)
         student_data = next((s for s in report_data['students'] if s['student_id'] == student_id), None)
-        class_info = self.data_service.get_class_by_id(class_id) # Mantendo query leve por ID
+        class_info = self.data_service.get_class_by_id(class_id)
 
         if not student_data or not class_info:
-             # Fallback caso o aluno não esteja na lista (ex: foi deletado mas id passado)
-             # Mas report_data['students'] pega enrollments.
              raise ValueError("Student or Class not found (or student not enrolled).")
 
         subjects_data = report_data['subjects']
@@ -277,7 +143,6 @@ class ReportService:
         if not subjects_data:
             raise ValueError(f"No subjects found for {class_info['name']}.")
 
-        # Prepare data
         subject_names = []
         averages = []
 
@@ -285,7 +150,6 @@ class ReportService:
             assessments = subject['assessments']
             total_weight = sum(a['weight'] for a in assessments)
 
-            # Reconstrói lista de grades do aluno para esta matéria a partir do map global (Dict otimizado)
             student_grades = {}
             for assessment in assessments:
                 score = grades_map.get((student_id, assessment['id']))
@@ -296,22 +160,20 @@ class ReportService:
             subject_names.append(subject['course_name'])
             averages.append(avg)
 
-        # Plotting
-        plt.figure(figsize=(12, 6))
-        plt.bar(subject_names, averages, color='skyblue')
-        plt.xlabel('Disciplinas')
-        plt.ylabel('Média')
+        # Plotting with plotext
+        plt.clear_figure()
+        plt.bar(subject_names, averages, orientation="vertical", width=0.5)
         plt.title(f"Desempenho de {student_data['name']} - {class_info['name']}")
+        plt.xlabel("Disciplinas")
+        plt.ylabel("Média")
         plt.ylim(0, 10)
-        plt.grid(axis='y', linestyle='--', alpha=0.7)
-        plt.xticks(rotation=45, ha='right')
-        plt.tight_layout()
 
         # Save file
-        filename = f"chart_student_{student_id}_class_{class_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
+        filename = f"chart_student_{student_id}_class_{class_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
         filepath = self._get_file_path(filename)
-        plt.savefig(filepath)
-        plt.close()
+
+        # plotext saves as text with ANSI codes
+        plt.save_fig(filepath)
 
         return filepath
 
@@ -320,13 +182,12 @@ class ReportService:
         Generates a histogram of global grade distribution for a class (averaging all subjects).
 
         :param class_id: ID of the class.
-        :return: Path to the generated image file.
+        :return: Path to the generated text/ansi file.
         """
         class_info = self.data_service.get_class_by_id(class_id)
         if not class_info:
             raise ValueError("Class not found.")
 
-        # Otimização 2: Usa o helper para evitar N+1 queries (Alunos x Disciplinas)
         report_data = self.data_service.get_class_report_data(class_id)
         students = report_data['students']
         subjects = report_data['subjects']
@@ -342,7 +203,6 @@ class ReportService:
                 assessments = subject['assessments']
                 total_weight = sum(a['weight'] for a in assessments)
 
-                # Monta notas do aluno para essa matéria usando o mapa (Dict otimizado)
                 student_grades = {}
                 for assessment in assessments:
                     score = grades_map.get((student_id, assessment['id']))
@@ -361,20 +221,18 @@ class ReportService:
         if not global_averages:
              raise ValueError("No data to generate distribution.")
 
-        # Plotting
-        plt.figure(figsize=(10, 6))
-        plt.hist(global_averages, bins=[0, 2, 4, 6, 8, 10], edgecolor='black', alpha=0.7)
-        plt.xlabel('Média Global (Todas as Disciplinas)')
-        plt.ylabel('Número de Alunos')
+        # Plotting with plotext
+        plt.clear_figure()
+        plt.hist(global_averages, bins=10) # bins work differently in plotext, integer count
         plt.title(f"Distribuição de Notas Global - {class_info['name']}")
-        plt.xticks([1, 3, 5, 7, 9])
-        plt.grid(axis='y', linestyle='--', alpha=0.7)
+        plt.xlabel("Média Global")
+        plt.ylabel("Número de Alunos")
 
         # Save file
-        filename = f"chart_distribution_class_{class_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.png"
+        filename = f"chart_distribution_class_{class_id}_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt"
         filepath = self._get_file_path(filename)
-        plt.savefig(filepath)
-        plt.close()
+
+        plt.save_fig(filepath)
 
         return filepath
 
