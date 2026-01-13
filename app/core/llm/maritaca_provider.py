@@ -8,9 +8,11 @@
 # Este arquivo de código-fonte está sujeito aos termos da Mozilla Public
 # License, v. 2.0. Se uma cópia da MPL não foi distribuída com este
 # arquivo, você pode obter uma em https://mozilla.org/MPL/2.0/.
-from openai import AsyncOpenAI
+from typing import List, TYPE_CHECKING
 from app.core.llm.base import LLMProvider, AssistantResponse
-from typing import List
+
+if TYPE_CHECKING:
+    from openai import AsyncOpenAI
 
 class MaritacaProvider(LLMProvider):
     """
@@ -19,6 +21,7 @@ class MaritacaProvider(LLMProvider):
     """
 
     def __init__(self, api_key: str, model: str = "sabia-3"):
+        from openai import AsyncOpenAI
         self.client = AsyncOpenAI(
             api_key=api_key,
             base_url="https://chat.maritaca.ai/api",
@@ -37,7 +40,7 @@ class MaritacaProvider(LLMProvider):
         try:
             models = await self.client.models.list()
             # Cast model to Any to avoid linter errors about dynamic attributes
-            all_models = sorted([model.id for model in models])
+            all_models = sorted([model.id for model in models.data])
 
             # Filter out deprecated models (e.g., sabia-2 family)
             # We keep only models that do NOT start with 'sabia-2'

@@ -8,10 +8,11 @@
 # Este arquivo de código-fonte está sujeito aos termos da Mozilla Public
 # License, v. 2.0. Se uma cópia da MPL não foi distribuída com este
 # arquivo, você pode obter uma em https://mozilla.org/MPL/2.0/.
-from openai import AsyncOpenAI
+from typing import List, TYPE_CHECKING
 from app.core.llm.base import LLMProvider, AssistantResponse
-from typing import List
 
+if TYPE_CHECKING:
+    from openai import AsyncOpenAI
 
 class OpenAIProvider(LLMProvider):
     """
@@ -19,6 +20,8 @@ class OpenAIProvider(LLMProvider):
     """
 
     def __init__(self, api_key: str, model: str = "gpt-4"):
+        # Lazy import of openai
+        from openai import AsyncOpenAI
         self.client = AsyncOpenAI(api_key=api_key)
         self.model = model
 
@@ -32,7 +35,8 @@ class OpenAIProvider(LLMProvider):
     async def list_models(self) -> List[str]:
         try:
             models = await self.client.models.list()
-            return sorted([model.id for model in models if "gpt" in model.id])  # type: ignore
+            # Note: models object structure depends on openai version, keeping it simple
+            return sorted([model.id for model in models.data if "gpt" in model.id])
         except Exception as e:
             print(f"Error listing OpenAI models: {e}")
             return []

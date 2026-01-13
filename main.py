@@ -10,7 +10,7 @@
 # arquivo, você pode obter uma em https://mozilla.org/MPL/2.0/.
 import logging
 from sqlalchemy import inspect
-from app.ui.main_app import MainApp
+from app.tui.app import TuiApp # Import TUI App instead of MainApp
 from app.data.database import engine, Base
 # Importa o DataService singleton (instância compartilhada) para garantir consistência com as ferramentas da IA
 from app.services import data_service
@@ -66,7 +66,7 @@ def initialize_database():
 
 def main():
     try:
-        logging.info("Iniciando o Profgent...")
+        logging.info("Iniciando o Profgent TUI...")
 
         # 1. Inicializa a camada de dados
         initialize_database()
@@ -77,12 +77,12 @@ def main():
         # Inicializa o serviço do assistente (que carrega configurações e ferramentas)
         assistant_service = AssistantService()
 
-        # 3. Inicializa a Interface Gráfica
-        logging.info("Inicializando interface gráfica...")
-        app = MainApp(data_service=data_service, assistant_service=assistant_service)
+        # 3. Inicializa a Interface Gráfica (TUI)
+        logging.info("Inicializando interface TUI...")
+        app = TuiApp(data_service=data_service, assistant_service=assistant_service)
 
         # 4. Inicia o loop principal
-        app.mainloop()
+        app.run()
 
         logging.info("Aplicação encerrada pelo usuário.")
 

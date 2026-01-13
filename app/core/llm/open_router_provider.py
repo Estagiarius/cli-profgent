@@ -8,10 +8,11 @@
 # Este arquivo de código-fonte está sujeito aos termos da Mozilla Public
 # License, v. 2.0. Se uma cópia da MPL não foi distribuída com este
 # arquivo, você pode obter uma em https://mozilla.org/MPL/2.0/.
-from openai import AsyncOpenAI
+from typing import List, TYPE_CHECKING
 from app.core.llm.base import LLMProvider, AssistantResponse
-from typing import List
 
+if TYPE_CHECKING:
+    from openai import AsyncOpenAI
 
 class OpenRouterProvider(LLMProvider):
     """
@@ -20,6 +21,7 @@ class OpenRouterProvider(LLMProvider):
     """
 
     def __init__(self, api_key: str, model: str = "mistralai/mistral-7b-instruct:free"):
+        from openai import AsyncOpenAI
         self.client = AsyncOpenAI(
             api_key=api_key,
             base_url="https://openrouter.ai/api/v1",
