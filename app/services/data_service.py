@@ -137,6 +137,9 @@ class DataService:
         return self.course_service.delete_class(*args, **kwargs)
 
     # --- Enrollment Service Delegations ---
+    def get_student_enrollments(self, *args, **kwargs):
+        return self.enrollment_service.get_student_enrollments(*args, **kwargs)
+
     def add_student_to_class(self, *args, **kwargs):
         return self.enrollment_service.add_student_to_class(*args, **kwargs)
 

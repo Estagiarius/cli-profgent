@@ -32,7 +32,7 @@ class StudentListScreen(Screen):
         table.add_columns("ID", "Nome", "Turma Atual")
 
         # Fetch data
-        students = self.app.data_service.list_students()
+        students = self.app.data_service.get_all_students()
 
         for student in students:
             # We need to find the current class for the student (optimization: query join in future)
@@ -75,7 +75,7 @@ class ClassListScreen(Screen):
 
         table.add_columns("ID", "Nome")
 
-        classes = self.app.data_service.list_classes()
+        classes = self.app.data_service.get_all_classes()
         for cls in classes:
             table.add_row(str(cls['id']), cls['name'])
 

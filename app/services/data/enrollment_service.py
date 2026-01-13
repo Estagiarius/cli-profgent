@@ -2,9 +2,26 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 from app.models.student import Student
 from app.models.class_enrollment import ClassEnrollment
+from app.models.class_ import Class
 from .base_service import BaseDataService
 
 class EnrollmentService(BaseDataService):
+    def get_student_enrollments(self, student_id: int) -> list[dict]:
+        with self._get_db() as db:
+            enrollments = (db.query(
+                ClassEnrollment.id, ClassEnrollment.status, Class.name.label('class_name'), Class.id.label('class_id')
+            )
+            .join(Class, ClassEnrollment.class_id == Class.id)
+            .filter(ClassEnrollment.student_id == student_id)
+            .all())
+
+            return [
+                {
+                    "id": e.id, "status": e.status,
+                    "class_name": e.class_name, "class_id": e.class_id
+                } for e in enrollments
+            ]
+
     def add_student_to_class(self, student_id: int, class_id: int, call_number: int, status: str = "Active") -> dict | None:
         if not all([student_id, class_id, call_number is not None]): return None
         with self._get_db() as db:
